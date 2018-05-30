@@ -7,6 +7,7 @@ import java.io.Serializable;
 public interface AssociativeStore<S, SID extends Serializable> extends Store<SID> {
 
 	Resource getResource(S entity);
+	Resource forgetResource(S entity);
 
 	void associate(S entity, SID id);
 

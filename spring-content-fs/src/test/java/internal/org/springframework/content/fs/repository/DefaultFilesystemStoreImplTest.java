@@ -41,7 +41,7 @@ import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 @RunWith(Ginkgo4jRunner.class)
 @Ginkgo4jConfiguration(threads = 1)
-public class DefaultFilesystemStoresImplTest {
+public class DefaultFilesystemStoreImplTest {
 	private DefaultFilesystemStoreImpl<ContentProperty, String> filesystemContentRepoImpl;
 	private FileSystemResourceLoader loader;
 	private ConversionService conversion;
@@ -93,7 +93,13 @@ public class DefaultFilesystemStoresImplTest {
 						verify(loader).getResource(eq("12345-67890"));
 					});
 				});
-				Context("#getResource with entity", () -> {
+			});
+
+			Describe("AssociativeStore", () -> {
+				BeforeEach(() -> {
+					deletableResource = mock(DeletableResource.class);
+				});
+				Context("#getResource", () -> {
 					JustBeforeEach(() -> {
 						resource = filesystemContentRepoImpl.getResource(entity);
 					});
@@ -142,6 +148,55 @@ public class DefaultFilesystemStoresImplTest {
 													.getResource(eq("/12345/67890"));
 										});
 							});
+				});
+				Context("#forgetResource", () -> {
+					JustBeforeEach(() -> {
+						resource = filesystemContentRepoImpl.forgetResource(entity);
+					});
+					Context("given a resource is associated", () -> {
+						Context("given it has its own @ContentId", () -> {
+							BeforeEach(() -> {
+								entity = new TestEntity();
+								entity.setContentId("12345-67890");
+
+								when(conversion.convert(eq("12345-67890"),
+										eq(String.class))).thenReturn("/12345/67890");
+								when(loader.getResource(eq("/12345/67890"))).thenReturn(mock(Resource.class));
+							});
+							It("should return the resource", () -> {
+								assertThat(resource, is(not(nullValue())));
+							});
+							It("should unset the @ContentId", () -> {
+								assertThat(entity.getContentId(), is(nullValue()));
+							});
+						});
+						Context("given it has a shared @Id", () -> {
+							BeforeEach(() -> {
+								entity = new SharedIdContentIdEntity();
+								entity.setContentId("abcd-efgh");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(entity.getContentId(), is("abcd-efgh"));
+							});
+						});
+						Context("given it has a shared Spring @Id", () -> {
+							BeforeEach(() -> {
+								entity = new SharedSpringIdContentIdEntity();
+								entity.setContentId("abcd-efgh");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(entity.getContentId(), is("abcd-efgh"));
+							});
+						});
+					});
+					Context("given a resource is not associated", () -> {
+						BeforeEach(() -> {
+							entity = new TestEntity();
+						});
+						It("should return null", () -> {
+							assertThat(resource, is(nullValue()));
+						});
+					});
 				});
 				Context("#associate", () -> {
 					BeforeEach(() -> {

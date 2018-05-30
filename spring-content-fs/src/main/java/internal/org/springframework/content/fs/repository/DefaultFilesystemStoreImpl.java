@@ -62,6 +62,36 @@ public class DefaultFilesystemStoreImpl<S, SID extends Serializable>
 		return getResourceInternal(contentId);
 	}
 
+	@Override
+	public Resource forgetResource(S entity) {
+		Resource resource = null;
+		Object contentId = BeanUtils.getFieldWithAnnotation(entity, ContentId.class);
+		if (contentId == null) {
+			return resource;
+		} else {
+			resource = this.getResourceInternal(contentId);
+
+			BeanUtils.setFieldWithAnnotationConditionally(entity, ContentId.class, null,
+					new Condition() {
+						@Override
+						public boolean matches(Field field) {
+							for (Annotation annotation : field.getAnnotations()) {
+								if ("javax.persistence.Id".equals(
+										annotation.annotationType().getCanonicalName())
+										|| "org.springframework.data.annotation.Id"
+												.equals(annotation.annotationType()
+														.getCanonicalName())) {
+									return false;
+								}
+							}
+							return true;
+						}
+					});
+
+		}
+		return resource;
+	}
+
 	protected Resource getResourceInternal(Object id) {
 		String location = conversion.convert(id, String.class);
 		Resource resource = loader.getResource(location);

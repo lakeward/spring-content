@@ -1,17 +1,20 @@
 package internal.org.springframework.content.mongo.repository;
 
-import static com.github.paulcwarren.ginkgo4j.Ginkgo4jDSL.*;
+import static com.github.paulcwarren.ginkgo4j.Ginkgo4jDSL.BeforeEach;
+import static com.github.paulcwarren.ginkgo4j.Ginkgo4jDSL.Context;
+import static com.github.paulcwarren.ginkgo4j.Ginkgo4jDSL.Describe;
+import static com.github.paulcwarren.ginkgo4j.Ginkgo4jDSL.It;
+import static com.github.paulcwarren.ginkgo4j.Ginkgo4jDSL.JustBeforeEach;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.anyObject;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.ArgumentMatchers.matches;
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Matchers.isA;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,7 +22,6 @@ import static org.mockito.Mockito.when;
 import java.io.InputStream;
 import java.util.UUID;
 
-import org.bson.types.ObjectId;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.content.commons.annotations.ContentId;
@@ -37,7 +39,6 @@ public class DefaultMongoStoreImplTest {
 	private DefaultMongoStoreImpl<Object, String> mongoContentRepoImpl;
 	private GridFsTemplate gridFsTemplate;
 	private GridFSFile gridFSFile;
-	private ObjectId gridFSId;
 	private ContentProperty property;
 	private GridFsResource resource;
 	private Resource genericResource;
@@ -57,15 +58,70 @@ public class DefaultMongoStoreImplTest {
 							gridFsTemplate, converter);
 				});
 				Context("#getResource", () -> {
-					Context("with an id", () -> {
+					BeforeEach(() -> {
+						when(converter.convert(eq("abcd"), eq(String.class)))
+								.thenReturn("abcd");
+						when(gridFsTemplate.getResource(eq("abcd")))
+								.thenReturn(resource);
+					});
+					JustBeforeEach(() -> {
+						genericResource = mongoContentRepoImpl.getResource("abcd");
+					});
+					It("should use the mongoStoreConverter to find the resource path",
+							() -> {
+								verify(converter).convert(eq("abcd"),
+										eq(String.class));
+							});
+					It("should get Resource", () -> {
+						assertThat(genericResource, is(instanceOf(Resource.class)));
+					});
+				});
+			});
+
+			Describe("AssociativeStore", () -> {
+				BeforeEach(() -> {
+					converter = mock(ConversionService.class);
+					gridFsTemplate = mock(GridFsTemplate.class);
+					resource = mock(GridFsResource.class);
+					mongoContentRepoImpl = new DefaultMongoStoreImpl<Object, String>(
+							gridFsTemplate, converter);
+				});
+				Context("#getResource", () -> {
+					BeforeEach(() -> {
+						property = new TestEntity();
+					});
+					JustBeforeEach(() -> {
+						genericResource = mongoContentRepoImpl.getResource(property);
+					});
+					Context("without existing content", () -> {
 						BeforeEach(() -> {
+							when(converter.convert(matches(
+									"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"),
+									eq(String.class))).thenReturn("abcd");
+							when(gridFsTemplate.getResource(eq("abcd")))
+									.thenReturn(resource);
+						});
+						It("should use the mongoStoreConverter to find the resource path",
+								() -> {
+									verify(converter).convert(matches(
+											"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"),
+											eq(String.class));
+								});
+						It("should get Resource", () -> {
+							assertThat(genericResource, is(not(nullValue())));
+						});
+						It("should set the entity's @ContentId", () -> {
+							assertThat(property.getContentId(), is(not(nullValue())));
+						});
+					});
+					Context("with existing content", () -> {
+						BeforeEach(() -> {
+							property.setContentId("abcd");
+
 							when(converter.convert(eq("abcd"), eq(String.class)))
 									.thenReturn("abcd");
 							when(gridFsTemplate.getResource(eq("abcd")))
 									.thenReturn(resource);
-						});
-						JustBeforeEach(() -> {
-							genericResource = mongoContentRepoImpl.getResource("abcd");
 						});
 						It("should use the mongoStoreConverter to find the resource path",
 								() -> {
@@ -73,58 +129,64 @@ public class DefaultMongoStoreImplTest {
 											eq(String.class));
 								});
 						It("should get Resource", () -> {
-							assertThat(genericResource, is(instanceOf(Resource.class)));
-						});
-					});
-					Context("with an entity", () -> {
-						BeforeEach(() -> {
-							property = new TestEntity();
-						});
-						JustBeforeEach(() -> {
-							genericResource = mongoContentRepoImpl.getResource(property);
-						});
-						Context("without existing content", () -> {
-							BeforeEach(() -> {
-								when(converter.convert(matches(
-										"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"),
-										eq(String.class))).thenReturn("abcd");
-								when(gridFsTemplate.getResource(eq("abcd")))
-										.thenReturn(resource);
-							});
-							It("should use the mongoStoreConverter to find the resource path",
-									() -> {
-										verify(converter).convert(matches(
-												"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"),
-												eq(String.class));
-									});
-							It("should get Resource", () -> {
-								assertThat(genericResource, is(not(nullValue())));
-							});
-							It("should set the entity's @ContentId", () -> {
-								assertThat(property.getContentId(), is(not(nullValue())));
-							});
-						});
-						Context("with existing content", () -> {
-							BeforeEach(() -> {
-								property.setContentId("abcd");
-
-								when(converter.convert(eq("abcd"), eq(String.class)))
-										.thenReturn("abcd");
-								when(gridFsTemplate.getResource(eq("abcd")))
-										.thenReturn(resource);
-							});
-							It("should use the mongoStoreConverter to find the resource path",
-									() -> {
-										verify(converter).convert(eq("abcd"),
-												eq(String.class));
-									});
-							It("should get Resource", () -> {
-								assertThat(genericResource, is(not(nullValue())));
-							});
+							assertThat(genericResource, is(not(nullValue())));
 						});
 					});
 				});
+				Context("#forgetResource", () -> {
+					JustBeforeEach(() -> {
+						genericResource = mongoContentRepoImpl.forgetResource(property);
+					});
+					Context("given a resource is associated", () -> {
+						Context("given it has its own @ContentId", () -> {
+							BeforeEach(() -> {
+								property = new TestEntity();
+								property.setContentId("12345-67890");
 
+								when(converter.convert(eq("12345-67890"),
+										eq(String.class))).thenReturn("/12345/67890");
+							});
+							It("should return the resource", () -> {
+								assertThat(genericResource, is(not(nullValue())));
+							});
+							It("should unset the @ContentId", () -> {
+								assertThat(property.getContentId(), is(nullValue()));
+							});
+						});
+						Context("given it has a shared @Id", () -> {
+							BeforeEach(() -> {
+								property = new SharedIdContentIdEntity();
+								property.setContentId("12345-67890");
+
+								when(converter.convert(eq("12345-67890"),
+										eq(String.class))).thenReturn("/12345/67890");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(property.getContentId(), is("12345-67890"));
+							});
+						});
+						Context("given it has a shared Spring @Id", () -> {
+							BeforeEach(() -> {
+								property = new SharedSpringIdContentIdEntity();
+								property.setContentId("12345-67890");
+
+								when(converter.convert(eq("12345-67890"),
+										eq(String.class))).thenReturn("/12345/67890");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(property.getContentId(), is("12345-67890"));
+							});
+						});
+					});
+					Context("given a resource is not associated", () -> {
+						BeforeEach(() -> {
+							property = new TestEntity();
+						});
+						It("should return null", () -> {
+							assertThat(genericResource, is(nullValue()));
+						});
+					});
+				});
 				Context("#associate", () -> {
 					BeforeEach(() -> {
 						property = new TestEntity();
@@ -152,7 +214,6 @@ public class DefaultMongoStoreImplTest {
 						assertThat(property.getContentLen(), is(20L));
 					});
 				});
-
 				Context("#unassociate", () -> {
 					BeforeEach(() -> {
 						property = new TestEntity();

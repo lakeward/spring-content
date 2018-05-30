@@ -238,7 +238,7 @@ public class DefaultS3StoreImplTest {
 					s3StoreImpl = new DefaultS3StoreImpl<ContentProperty, String>(loader,
 							converter, client, resolver, defaultBucket);
 				});
-				Context("#getResourceInternal", () -> {
+				Context("#getResource", () -> {
 					JustBeforeEach(() -> {
 						s3StoreImpl = new DefaultS3StoreImpl<ContentProperty, String>(
 								loader, converter, client, resolver, defaultBucket);
@@ -348,6 +348,62 @@ public class DefaultS3StoreImplTest {
 									});
 								});
 							});
+				});
+				Context("#forgetResource", () -> {
+					JustBeforeEach(() -> {
+						s3StoreImpl = new DefaultS3StoreImpl<ContentProperty, String>(
+								loader, converter, client, resolver, defaultBucket);
+						try {
+							s3StoreImpl.forgetResource(entity);
+						}
+						catch (Exception e) {
+							this.e = e;
+						}
+					});
+					Context("given a resource is associated", () -> {
+						Context("given it has its own @ContentId", () -> {
+							BeforeEach(() -> {
+								entity = new TestEntity();
+								entity.setContentId("12345-67890");
+
+								when(converter.convert(eq("12345-67890"),
+										eq(String.class))).thenReturn("/12345/67890");
+								when(loader.getResource(eq("/12345/67890"))).thenReturn(mock(Resource.class));
+							});
+							It("should return the resource", () -> {
+								assertThat(resource, is(not(nullValue())));
+							});
+							It("should unset the @ContentId", () -> {
+								assertThat(entity.getContentId(), is(nullValue()));
+							});
+						});
+						Context("given it has a shared @Id", () -> {
+							BeforeEach(() -> {
+								entity = new SharedIdContentIdEntity();
+								entity.setContentId("abcd-efgh");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(entity.getContentId(), is("abcd-efgh"));
+							});
+						});
+						Context("given it has a shared Spring @Id", () -> {
+							BeforeEach(() -> {
+								entity = new SharedSpringIdContentIdEntity();
+								entity.setContentId("abcd-efgh");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(entity.getContentId(), is("abcd-efgh"));
+							});
+						});
+					});
+					Context("given a resource is not associated", () -> {
+						BeforeEach(() -> {
+							entity = new TestEntity();
+						});
+						It("should return null", () -> {
+							assertThat(resource, is(nullValue()));
+						});
+					});
 				});
 			});
 			Describe("ContentStore", () -> {

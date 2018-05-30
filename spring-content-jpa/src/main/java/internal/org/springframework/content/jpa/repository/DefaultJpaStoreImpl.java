@@ -57,6 +57,36 @@ public class DefaultJpaStoreImpl<S, SID extends Serializable>
 	}
 
 	@Override
+	public Resource forgetResource(S entity) {
+		Resource resource = null;
+		Object contentId = BeanUtils.getFieldWithAnnotation(entity, ContentId.class);
+		if (contentId == null) {
+			return resource;
+		} else {
+			resource = loader.getResource(contentId.toString());
+
+			BeanUtils.setFieldWithAnnotationConditionally(entity, ContentId.class, null,
+					new Condition() {
+						@Override
+						public boolean matches(Field field) {
+							for (Annotation annotation : field.getAnnotations()) {
+								if ("javax.persistence.Id".equals(
+										annotation.annotationType().getCanonicalName())
+										|| "org.springframework.data.annotation.Id"
+												.equals(annotation.annotationType()
+														.getCanonicalName())) {
+									return false;
+								}
+							}
+							return true;
+						}
+					});
+
+		}
+		return resource;
+	}
+
+	@Override
 	public void associate(S entity, SID id) {
 		BeanUtils.setFieldWithAnnotation(entity, ContentId.class, id.toString());
 		Resource resource = loader.getResource(id.toString());
@@ -167,5 +197,4 @@ public class DefaultJpaStoreImpl<S, SID extends Serializable>
 		}
 		return contentId.toString();
 	}
-
 }

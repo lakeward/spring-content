@@ -1,6 +1,7 @@
 package internal.org.springframework.content.jpa.store;
 
 import com.github.paulcwarren.ginkgo4j.Ginkgo4jRunner;
+
 import internal.org.springframework.content.jpa.io.GenericBlobResource;
 import internal.org.springframework.content.jpa.repository.DefaultJpaStoreImpl;
 import org.hamcrest.CoreMatchers;
@@ -38,11 +39,11 @@ import static org.mockito.Mockito.when;
 @RunWith(Ginkgo4jRunner.class)
 public class DefaultJpaStoreImplTest {
 
-	private DefaultJpaStoreImpl<Object, String> store;
+	private DefaultJpaStoreImpl<ContentProperty, String> store;
 
 	private BlobResourceLoader blobResourceLoader;
 
-	private TestEntity entity;
+	private ContentProperty entity;
 	private InputStream stream;
 	private InputStream inputStream;
 	private OutputStream outputStream;
@@ -74,7 +75,13 @@ public class DefaultJpaStoreImplTest {
 								});
 					});
 				});
-				Context("#getResource with entity", () -> {
+			});
+
+			Describe("#AssociativeStore", () -> {
+				BeforeEach(() -> {
+					blobResourceLoader = mock(BlobResourceLoader.class);
+				});
+				Context("#getResource", () -> {
 					JustBeforeEach(() -> {
 						resource = store.getResource(entity);
 					});
@@ -98,6 +105,53 @@ public class DefaultJpaStoreImplTest {
 									verify(blobResourceLoader).getResource(eq("12345"));
 								});
 							});
+				});
+				Context("#forgetResource", () -> {
+					JustBeforeEach(() -> {
+						resource = store.forgetResource(entity);
+					});
+					Context("given a resource is associated", () -> {
+						Context("given it has its own @ContentId", () -> {
+							BeforeEach(() -> {
+								entity = new TestEntity();
+								entity.setContentId("12345-67890");
+
+								when(blobResourceLoader.getResource(eq("12345-67890"))).thenReturn(mock(Resource.class));
+							});
+							It("should return the resource", () -> {
+								assertThat(resource, is(not(nullValue())));
+							});
+							It("should unset the @ContentId", () -> {
+								assertThat(entity.getContentId(), is(nullValue()));
+							});
+						});
+						Context("given it has a shared @Id", () -> {
+							BeforeEach(() -> {
+								entity = new SharedIdContentIdEntity();
+								entity.setContentId("abcd-efgh");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(entity.getContentId(), is("abcd-efgh"));
+							});
+						});
+						Context("given it has a shared Spring @Id", () -> {
+							BeforeEach(() -> {
+								entity = new SharedSpringIdContentIdEntity();
+								entity.setContentId("abcd-efgh");
+							});
+							It("should not unset the @Id", () -> {
+								assertThat(entity.getContentId(), is("abcd-efgh"));
+							});
+						});
+					});
+					Context("given a resource is not associated", () -> {
+						BeforeEach(() -> {
+							entity = new TestEntity();
+						});
+						It("should return null", () -> {
+							assertThat(resource, is(nullValue()));
+						});
+					});
 				});
 				Context("#associate", () -> {
 					BeforeEach(() -> {
@@ -224,7 +278,17 @@ public class DefaultJpaStoreImplTest {
 		});
 	}
 
-	public static class TestEntity {
+	public interface ContentProperty {
+		String getContentId();
+
+		void setContentId(String contentId);
+
+		long getContentLen();
+
+		void setContentLen(long contentLen);
+	}
+
+	public static class TestEntity implements ContentProperty {
 		@ContentId
 		private String contentId;
 		@ContentLength
@@ -253,7 +317,65 @@ public class DefaultJpaStoreImplTest {
 		public void setContentLen(long contentLen) {
 			this.contentLen = contentLen;
 		}
-
 	}
 
+	public static class SharedIdContentIdEntity implements ContentProperty {
+
+		@javax.persistence.Id
+		@ContentId
+		private String contentId;
+
+		@ContentLength
+		private long contentLen;
+
+		public SharedIdContentIdEntity() {
+			this.contentId = null;
+		}
+
+		public String getContentId() {
+			return this.contentId;
+		}
+
+		public void setContentId(String contentId) {
+			this.contentId = contentId;
+		}
+
+		public long getContentLen() {
+			return contentLen;
+		}
+
+		public void setContentLen(long contentLen) {
+			this.contentLen = contentLen;
+		}
+	}
+
+	public static class SharedSpringIdContentIdEntity implements ContentProperty {
+
+		@org.springframework.data.annotation.Id
+		@ContentId
+		private String contentId;
+
+		@ContentLength
+		private long contentLen;
+
+		public SharedSpringIdContentIdEntity() {
+			this.contentId = null;
+		}
+
+		public String getContentId() {
+			return this.contentId;
+		}
+
+		public void setContentId(String contentId) {
+			this.contentId = contentId;
+		}
+
+		public long getContentLen() {
+			return contentLen;
+		}
+
+		public void setContentLen(long contentLen) {
+			this.contentLen = contentLen;
+		}
+	}
 }

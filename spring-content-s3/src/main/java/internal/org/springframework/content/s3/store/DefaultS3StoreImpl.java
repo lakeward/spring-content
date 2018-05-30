@@ -98,6 +98,43 @@ public class DefaultS3StoreImpl<S, SID extends Serializable>
 		return this.getResourceInternal(s3ObjectId);
 	}
 
+	@Override
+	public Resource forgetResource(S entity) {
+		if (entity == null)
+			return null;
+
+		Resource resource = null;
+		String bucket = this.getS3ObjectIdResolver().getBucket(entity,
+				this.defaultBucket);
+		String objectId = this.getS3ObjectIdResolver().getKey(entity);
+
+		if (bucket == null) {
+			throw new StoreAccessException("Bucket not set");
+		}
+
+		S3ObjectId s3ObjectId = new S3ObjectId(bucket.toString(), objectId.toString());
+		resource = this.getResourceInternal(s3ObjectId);
+
+		BeanUtils.setFieldWithAnnotationConditionally(entity, ContentId.class, null,
+				new Condition() {
+					@Override
+					public boolean matches(Field field) {
+						for (Annotation annotation : field.getAnnotations()) {
+							if ("javax.persistence.Id".equals(
+									annotation.annotationType().getCanonicalName())
+									|| "org.springframework.data.annotation.Id"
+									.equals(annotation.annotationType()
+											.getCanonicalName())) {
+								return false;
+							}
+						}
+						return true;
+					}
+				});
+
+		return resource;
+	}
+
 	protected Resource getResourceInternal(S3ObjectId id) {
 		String bucket = id.getBucket();
 		Object objectId = id.getKey();
