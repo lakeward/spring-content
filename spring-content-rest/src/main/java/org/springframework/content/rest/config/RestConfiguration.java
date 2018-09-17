@@ -1,5 +1,6 @@
 package org.springframework.content.rest.config;
 
+import internal.org.springframework.content.rest.controllers.ContentRestExceptionHandler;
 import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -16,7 +17,7 @@ import internal.org.springframework.content.rest.mappings.ContentHandlerMapping;
 import internal.org.springframework.content.rest.mappings.StoreByteRangeHttpRequestHandler;
 
 @Configuration
-@ComponentScan("internal.org.springframework.content.rest.controllers")
+@ComponentScan("internal.org.springframework.content.rest.controllers, org.springframework.data.rest.extensions.versioning")
 public class RestConfiguration extends HateoasAwareSpringDataWebConfiguration {
 
 	@Autowired
@@ -35,5 +36,10 @@ public class RestConfiguration extends HateoasAwareSpringDataWebConfiguration {
 	@Bean
 	StoreByteRangeHttpRequestHandler byteRangeRestRequestHandler() {
 		return new StoreByteRangeHttpRequestHandler();
+	}
+
+	@Bean
+	ContentRestExceptionHandler contentRestExceptionHandler() {
+		return new ContentRestExceptionHandler();
 	}
 }
